@@ -36,17 +36,17 @@ syscall_init (void)
 
   //Customized
   syscall_vec[SYS_EXIT] = (handler)sys_exit;
-  syscall_vec[SYS_CREATE] = (handler)sys_create;
-  syscall_vec[SYS_OPEN] = (handler)sys_open;
-  syscall_vec[SYS_CLOSE] = (handler)sys_close;
-  syscall_vec[SYS_READ] = (handler)sys_read;
+  //syscall_vec[SYS_CREATE] = (handler)sys_create;
+  //syscall_vec[SYS_OPEN] = (handler)sys_open;
+  //syscall_vec[SYS_CLOSE] = (handler)sys_close;
+  //syscall_vec[SYS_READ] = (handler)sys_read;
   syscall_vec[SYS_WRITE] = (handler)sys_write;
   syscall_vec[SYS_EXEC] = (handler)sys_exec;
   syscall_vec[SYS_WAIT] = (handler)sys_wait;
-  syscall_vec[SYS_FILESIZE] = (handler)sys_filesize;
-  syscall_vec[SYS_SEEK] = (handler)sys_seek;
-  syscall_vec[SYS_TELL] = (handler)sys_tell;
-  syscall_vec[SYS_REMOVE] = (handler)sys_remove;
+  //syscall_vec[SYS_FILESIZE] = (handler)sys_filesize;
+  //syscall_vec[SYS_SEEK] = (handler)sys_seek;
+  //syscall_vec[SYS_TELL] = (handler)sys_tell;
+  //syscall_vec[SYS_REMOVE] = (handler)sys_remove;
   
   list_init (&file_list);
   ///Customized
@@ -58,14 +58,64 @@ syscall_handler (struct intr_frame *f)
   //Customized
   int *p = f->esp;
   
-  if (is_user_vaddr (p) && !(*p < SYS_HALT || *p > SYS_INUMBER)) {
-    if (is_user_vaddr (p + 1) && is_user_vaddr (p + 2) && is_user_vaddr (p + 3)) {
-      f->eax = syscall_vec[*p] (*(p + 1), *(p + 2), *(p + 3));
+  if (is_user_vaddr(p) && !(*p < SYS_HALT || *p > SYS_INUMBER)) {
+    if (is_user_vaddr(p+1) && is_user_vaddr(p+2) && is_user_vaddr(p+3)) {
+	switch(*p)
+        {
+          case SYS_CREATE:
+            //f->eax = (handler)sys_create(*(p+1), *(p+2), *(p+3));
+            break;
+
+          case SYS_OPEN:
+            //f->eax = (handler)sys_open(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_SEEK:
+            //f->eax = (handler)sys_seek(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_FILESIZE:
+            //f->eax = (handler)sys_filesize(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_TELL:
+            //f->eax = (handler)sys_tell(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_READ:
+            f->eax = (handler)sys_read(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_WRITE:
+            f->eax = (handler)sys_write(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_EXEC:
+            //f->eax = (handler)sys_exec(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_WAIT:
+            //f->eax = (handler)sys_wait(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_REMOVE:
+            //f->eax = (handler)sys_remove(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_CLOSE:
+            //f->eax = (handler)sys_close(*(p+1), *(p+2), *(p+3));
+	    break;
+
+	  case SYS_EXIT:
+            //f->eax = (handler)sys_exit(*(p+1), *(p+2), *(p+3));
+	    break;
+        }      
+	//f->eax = syscall_vec[*p] (*(p+1), *(p+2), *(p+3));
       return;
     }
   }
   
-  sys_exit (-1);
+  sys_exit(-1);
   ///Customized
 }
 
@@ -160,35 +210,48 @@ sys_read (int fd, void *buffer, unsigned size)
 {
   int ret = -1;
   
-  if (fd == STDOUT_FILENO)
+  if(fd == STDOUT_FILENO)
     return ret;
-  else if (!is_user_vaddr (buffer) || !is_user_vaddr (buffer + size))
-    sys_exit (-1);
+  else if(!is_user_vaddr(buffer) || !is_user_vaddr(buffer+size))
+    sys_exit(-1);
   else
   {
-    struct file *f = find_file_by_fd (fd);
-    if (f)
-      ret = file_read (f, buffer, size);
+    struct file *file = find_file_by_fd(fd);
+    if(file)
+      ret = file_read(file, buffer, size);
   }
     
   return ret;
 }
 
 int
-sys_exec (const char *cmd)
+sys_exec(const char *cmd)
 {
-  if (!cmd || !is_user_vaddr (cmd))
+  if (!cmd || !is_user_vaddr(cmd))
     return -1;
   
-  int ret = process_execute (cmd);
-  
-  return ret;
+  return process_execute(cmd);
 }
 
 int
-sys_wait (pid_t pid)
+sys_wait(pid_t pid)
 {
-  return process_wait (pid);
+  int ret = -1;
+
+  struct thread *thr = get_thread_by_tid(pid);
+  if(thr->ret_status == 0xdcdcdcdc)
+    return ret;
+  if(thr->ret_status != 0xcdcdcdcd && thr->ret_status != 0xdcdcdcdc)
+    return thr->ret_status;
+
+  sema_down(&thr->wait);
+  ret = thr->ret_status;
+  printf("%s: exit(%d)\n", thr->name, thr->ret_status);
+  while(thr->status == THREAD_BLOCKED)
+    thread_unblock(thr);
+  
+  thr->ret_status = 0xdcdcdcdc;
+  return ret;
 }
 
 struct file *
