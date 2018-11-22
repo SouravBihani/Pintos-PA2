@@ -22,6 +22,7 @@
 #include "threads/malloc.h"
 
 tid_t child_wait(tid_t tid);
+void close_file(struct thread *thr);
 ///Customized
 
 static thread_func start_process NO_RETURN;
