@@ -20,7 +20,10 @@
 
 //Customized
 #include "threads/malloc.h"
-#include "userprog/syscall.h"
+
+tid_t child_wait(tid_t tid);
+void close_file(struct thread *thr);
+///Customized
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -35,10 +38,6 @@ process_execute (const char *file_name)
   char *fn_copy;
   tid_t tid = TID_ERROR;
 
-  //Customized
-  char *saveptr, *fnm;
-  ///Customized
-
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -47,30 +46,37 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   //Customized
-  fnm = malloc(strlen (file_name) + 1);
-  if(fnm) {
-    strlcpy(fnm, file_name, strlen(file_name) + 1);
-    file_name = strtok_r(fnm, " ", &saveptr);
+  int f_len = strlen(file_name)+1;
+  char *sv; 
+  char *file_nm = malloc(f_len);
+  if(file_nm) {
+    strlcpy(file_nm, file_name, f_len);
+    file_name = strtok_r(file_nm, " ", &sv);
 
     /* Create a new thread to execute FILE_NAME. */
-    tid = thread_create(fnm, PRI_DEFAULT, start_process, fn_copy);
+    tid = thread_create(file_nm, PRI_DEFAULT, start_process, fn_copy);
     if(tid != TID_ERROR) {
-      struct thread *thr = get_thread_by_tid(tid);
-      sema_down(&thr->wait);
-      if(thr->ret_status == -1)
-        tid = TID_ERROR;
-      while(thr->status == THREAD_BLOCKED)
-        thread_unblock(thr);
-      if(thr->ret_status == -1)
-        process_wait(thr->tid);
+      tid = child_wait(tid);
     }
   }
 
-  free(fnm);
+  free(file_nm);
   ///Customized
 
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy); 
+  return tid;
+}
+
+tid_t
+child_wait(tid_t tid)
+{
+  struct thread *thr = get_thread_by_tid(tid);
+  sema_down(&thr->wait);
+  if(thr->ret_status == -1)
+    tid = TID_ERROR;
+  while(thr->status == THREAD_BLOCKED)
+    thread_unblock(thr);
   return tid;
 }
 
@@ -83,14 +89,6 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
-  //Customized
-  char *token, *save_ptr;
-  void *start;
-  int argc, i;
-  int *argv_off; /* Maximum of 2 arguments */
-  size_t file_name_len;
-  ///Customized
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -98,67 +96,77 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   //Customized
-  struct thread *t = thread_current ();
-  argc = 0;
-  argv_off = malloc (32 * sizeof (int));
-  if (!argv_off)
+  struct thread *thr = thread_current();
+  int *argv_offset = malloc(32*sizeof(int));
+
+  if(!argv_offset)
   {
-    t->ret_status = -1;
-    sema_up (&t->wait);
-    thread_exit ();
+    thr->ret_status = -1;
+    sema_up(&thr->wait);
+    thread_exit();
   }
-  file_name_len = strlen (file_name);
-  argv_off[0] = 0;
-  for(token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr))
+  argv_offset[0] = 0;
+  
+  int file_len = strlen(file_name);
+  char *token, *sv;
+  
+  token = strtok_r(file_name, " ", &sv);
+  int argc = 0;
+
+  while(token != NULL)
   {
-    while (*(save_ptr) == ' ')
-      ++save_ptr;
-    argv_off[++argc] = save_ptr - file_name;
+    while (*(sv) == ' ')
+      ++sv;
+    argv_offset[++argc] = sv-file_name;
+    token = strtok_r(NULL, " ", &sv);
   }
   ///Customized
 
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load(file_name, &if_.eip, &if_.esp);
 
   //Customized
-  /* Setting up stack */
-  if (success)
+  if(success)
   {
-    t->self = filesys_open (file_name);
-    file_deny_write (t->self);
-    if_.esp -= file_name_len + 1;
-    start = if_.esp;
-    memcpy (if_.esp, file_name, file_name_len + 1);
-    if_.esp -= 4 - (file_name_len + 1) % 4; /* alignment */
-    if_.esp -= 4;
-    *(int *)(if_.esp) = 0; /* argv[argc] == 0 */
-    /* Now pushing argv[x], and this is where the fun begins */
-    for (i = argc - 1; i >= 0; --i)
+    thr->self = filesys_open(file_name);
+    file_deny_write(thr->self);
+    if_.esp = if_.esp-file_len+1;
+    
+    void* initial = if_.esp;
+
+    memcpy(if_.esp, file_name, file_len+1);
+    if_.esp = if_.esp-(sizeof(int)-(file_len+1)%sizeof(int));
+
+    if_.esp = if_.esp-sizeof(int);
+    *(int *)(if_.esp) = 0;
+    
+    int i = argc-1;
+    while(i >= 0)
     {
-      if_.esp -= 4;
-      *(void **)(if_.esp) = start + argv_off[i]; /* argv[x] */
+      if_.esp = if_.esp-sizeof(int);
+      *(void **)(if_.esp) = initial+argv_offset[i];
+      --i;
     }
 
-    if_.esp -= 4;
-    *(char **)(if_.esp) = (if_.esp + 4); /* argv */
-    if_.esp -= 4;
+    if_.esp = if_.esp-sizeof(int);
+    *(char **)(if_.esp) = (if_.esp+sizeof(int));
+    
+    if_.esp = if_.esp-sizeof(int);
     *(int *)(if_.esp) = argc;
-    if_.esp -= 4;
-    *(int *)(if_.esp) = 0; /* Fake return address */
-      
-    sema_up (&t->wait);
-    intr_disable ();
-    thread_block ();
-    intr_enable ();
+
+    if_.esp = if_.esp-sizeof(int);
+    *(int *)(if_.esp) = 0;
+
+    sema_up(&thr->wait);
+    intr_disable();
+    thread_block();
+    intr_enable();
   }
   else
   {
-    free (argv_off);
-    t->ret_status = -1;
-    sema_up (&t->wait);
-    thread_exit ();
+    thr->ret_status = -1;
+    sema_up(&thr->wait);
+    thread_exit();
   }
-  
-  free (argv_off);
   ///Customized
 
   /* If load failed, quit. */
@@ -184,31 +192,14 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t ch_tid) 
 {
   //Customized
-  int ret = -1;
+  struct thread *thr = get_thread_by_tid(ch_tid);
+  sema_down(&thr->wait);
+  printf("%s: exit(%d)\n", thr->name, thr->ret_status);
 
-  struct thread *t = get_thread_by_tid (child_tid);
-  if (!t || t->status == THREAD_DYING || t->ret_status == RET_STATUS_INVALID) {
-    t->ret_status = RET_STATUS_INVALID;
-    return ret;
-  }
-  if (t->ret_status != RET_STATUS_DEFAULT && t->ret_status != RET_STATUS_INVALID)
-  {
-    ret = t->ret_status;
-    t->ret_status = RET_STATUS_INVALID;
-    return ret;
-  }
-
-  sema_down (&t->wait);
-  ret = t->ret_status;
-  printf ("%s: exit(%d)\n", t->name, t->ret_status);
-  while (t->status == THREAD_BLOCKED)
-    thread_unblock (t);
-  
-  t->ret_status = RET_STATUS_INVALID;
-  return ret;
+  return -1;
   ///Customized
 }
 
@@ -220,17 +211,7 @@ process_exit (void)
   uint32_t *pd;
 
   //Customized
-  while (!list_empty (&cur->wait.waiters))
-    sema_up (&cur->wait);
-  file_close (cur->self);
-  cur->self = NULL;
-  cur->exited = true;
-  if (cur->parent)
-  {
-    intr_disable ();
-    thread_block ();
-    intr_enable ();
-  }
+  close_file(cur);
   ///Customized
 
   /* Destroy the current process's page directory and switch back
@@ -249,6 +230,25 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+}
+
+void
+close_file(struct thread *thr)
+{
+  file_close(thr->self);
+  
+  struct semaphore *c = &(thr->wait);
+  if(list_size(&c->waiters) != 0)
+    sema_up(&thr->wait);
+  
+  thr->self = NULL;
+  thr->exited = true;
+  if(thr->parent)
+  {
+    intr_disable();
+    thread_block();
+    intr_enable();
+  }
 }
 
 /* Sets up the CPU for running user code in the current
@@ -444,6 +444,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+   //hex_dump(PHYS_BASE-128, PHYS_BASE-128, 128, true);
 
  done:
   /* We arrive here whether the load is successful or not. */
