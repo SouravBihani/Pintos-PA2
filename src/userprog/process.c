@@ -140,8 +140,7 @@ start_process (void *file_name_)
     while(i >= 0)
     {
       if_.esp=if_.esp-sizeof(int);
-      *(void **)(if_.esp)=initial+argv_offset[i];
-      --i;
+      *(void **)(if_.esp)=initial+argv_offset[i--];
     }
 
     if_.esp=if_.esp-sizeof(int);
