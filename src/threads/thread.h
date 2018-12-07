@@ -102,13 +102,13 @@ struct thread
 
     //Customized
     struct semaphore wait;
-    int return_s;
-    struct list files;
-    struct file *self;
-    struct thread *parent;
     struct list children;
-    struct list_elem children_elem;
+    struct list files;
     bool exited;
+    struct thread *parent;
+    struct list_elem children_elem;
+    struct file *self;
+    int return_s;
 #endif
 
     /* Owned by thread.c. */
