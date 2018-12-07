@@ -101,14 +101,14 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 
     //Customized
-    struct semaphore wait;              /* semaphore for process_wait */
-    int ret_status;                     /* return status */
-    struct list files;                  /* all opened files */
-    struct file *self;                  /* the image file on the disk */
-    struct thread *parent;              /* parent process */
-    struct list children;               /* all children process */
-    struct list_elem children_elem;     /* in children list */
-    bool exited;                        /* whether the thread is exited or not */
+    struct semaphore wait;
+    struct list children;
+    struct list files;
+    bool exited;
+    struct thread *parent;
+    struct list_elem children_elem;
+    struct file *self;
+    int return_s;
 #endif
 
     /* Owned by thread.c. */
@@ -128,9 +128,6 @@ void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
-
-//Customized
-struct thread *get_thread_by_tid (tid_t);
 
 void thread_block (void);
 void thread_unblock (struct thread *);

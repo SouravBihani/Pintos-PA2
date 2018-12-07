@@ -4,23 +4,22 @@
 void syscall_init (void);
 
 //Customized
-int sys_write(int fd, const void *buffer, unsigned length);
-int sys_create(const char *file, unsigned initial_size);
-int sys_open(const char *file);
-int sys_close(int fd);
-int sys_read(int fd, void *buffer, unsigned size);
-int sys_exec(const char *cmd);
-int sys_wait(int pid);
-int sys_filesize(int fd);
-int sys_tell(int fd);
-int sys_seek(int fd, unsigned pos);
-int sys_remove(const char *file);
-int sys_exit(int status);
-
-struct file *find_file_by_fd(int fd);
-struct fd_elem *find_fd_elem_by_fd(int fd);
-struct fd_elem *find_fd_elem_by_fd_in_process(int fd);
-struct list file_list;
+int system_write(int file_desc,void *buf,int len);
+int system_create(char *file,int init_size);
+int system_open(char *file);
+int system_seek(int file_desc,int position);
+int system_filesize(int file_desc);
+int system_tell(int file_desc);
+int system_read(int file_desc,void *buf,int size);
+struct file *find_file_by_file_desc(int file_desc);
+struct filedesc_elem *find_filedesc_elem_by_file_desc(int file_desc);
+struct filedesc_elem *find_filedesc_elem_by_file_desc_in_process(int file_desc);
+struct list fl;
+int system_exec(char *command);
+int system_wait(int parent_id);
+int system_remove(char *file);
+int system_close(int file_desc);
+int system_exit(int s);
 ///Customized
 
 #endif /* userprog/syscall.h */

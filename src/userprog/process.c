@@ -46,24 +46,25 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   //Customized
-  int f_len = strlen(file_name)+1;
+  int f_len=strlen(file_name)+1;
   char *sv; 
-  char *file_nm = malloc(f_len);
-  if(file_nm) {
-    strlcpy(file_nm, file_name, f_len);
-    file_name = strtok_r(file_nm, " ", &sv);
+  char *file_nm=malloc(f_len);
+  if(file_nm)
+  {
+    strlcpy(file_nm,file_name,f_len);
+    file_name=strtok_r(file_nm," ",&sv);
 
     /* Create a new thread to execute FILE_NAME. */
-    tid = thread_create(file_nm, PRI_DEFAULT, start_process, fn_copy);
-    if(tid != TID_ERROR) {
-      tid = child_wait(tid);
+    tid=thread_create(file_nm, PRI_DEFAULT, start_process, fn_copy);
+    if(tid!=TID_ERROR) {
+      tid=child_wait(tid);
     }
   }
 
   free(file_nm);
   ///Customized
 
-  if (tid == TID_ERROR)
+  if(tid==TID_ERROR)
     palloc_free_page(fn_copy); 
   return tid;
 }
@@ -71,11 +72,11 @@ process_execute (const char *file_name)
 tid_t
 child_wait(tid_t tid)
 {
-  struct thread *thr = get_thread_by_tid(tid);
+  struct thread *thr=get_thread_by_tid(tid);
   sema_down(&thr->wait);
-  if(thr->ret_status == -1)
-    tid = TID_ERROR;
-  while(thr->status == THREAD_BLOCKED)
+  if(thr->return_s==-1)
+    tid=TID_ERROR;
+  while(thr->status==THREAD_BLOCKED)
     thread_unblock(thr);
   return tid;
 }
@@ -96,29 +97,25 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   //Customized
-  struct thread *thr = thread_current();
-  int *argv_offset = malloc(32*sizeof(int));
-
+  struct thread *thr=thread_current();
+  int *argv_offset=malloc(32*sizeof(int));
   if(!argv_offset)
   {
-    thr->ret_status = -1;
+    thr->return_s=-1;
     sema_up(&thr->wait);
     thread_exit();
   }
-  argv_offset[0] = 0;
-  
-  int file_len = strlen(file_name);
-  char *token, *sv;
-  
-  token = strtok_r(file_name, " ", &sv);
-  int argc = 0;
-
-  while(token != NULL)
+  argv_offset[0]=0;
+  int file_len=strlen(file_name);
+  char *token,*sv;
+  token=strtok_r(file_name," ",&sv);
+  int argc=0;
+  while(token!=NULL)
   {
-    while (*(sv) == ' ')
+    while(*(sv)==' ')
       ++sv;
-    argv_offset[++argc] = sv-file_name;
-    token = strtok_r(NULL, " ", &sv);
+    argv_offset[++argc]=sv-file_name;
+    token=strtok_r(NULL," ",&sv);
   }
   ///Customized
 
@@ -127,34 +124,33 @@ start_process (void *file_name_)
   //Customized
   if(success)
   {
-    thr->self = filesys_open(file_name);
+    thr->self=filesys_open(file_name);
     file_deny_write(thr->self);
-    if_.esp = if_.esp-file_len+1;
+    if_.esp=if_.esp-file_len+1;
     
-    void* initial = if_.esp;
-
-    memcpy(if_.esp, file_name, file_len+1);
-    if_.esp = if_.esp-(sizeof(int)-(file_len+1)%sizeof(int));
-
-    if_.esp = if_.esp-sizeof(int);
-    *(int *)(if_.esp) = 0;
+    void* initial=if_.esp;
+    memcpy(if_.esp,file_name,file_len+1);
     
-    int i = argc-1;
+    if_.esp=if_.esp-(sizeof(int)-(file_len+1)%sizeof(int));
+ 
+    if_.esp=if_.esp-sizeof(int);
+    *(int *)(if_.esp)=0;
+ 
+    int i=argc-1;
     while(i >= 0)
     {
-      if_.esp = if_.esp-sizeof(int);
-      *(void **)(if_.esp) = initial+argv_offset[i];
-      --i;
+      if_.esp=if_.esp-sizeof(int);
+      *(void **)(if_.esp)=initial+argv_offset[i--];
     }
 
-    if_.esp = if_.esp-sizeof(int);
-    *(char **)(if_.esp) = (if_.esp+sizeof(int));
+    if_.esp=if_.esp-sizeof(int);
+    *(char **)(if_.esp)=(if_.esp+sizeof(int));
     
-    if_.esp = if_.esp-sizeof(int);
-    *(int *)(if_.esp) = argc;
+    if_.esp=if_.esp-sizeof(int);
+    *(int *)(if_.esp)=argc;
 
-    if_.esp = if_.esp-sizeof(int);
-    *(int *)(if_.esp) = 0;
+    if_.esp=if_.esp-sizeof(int);
+    *(int *)(if_.esp)=0;
 
     sema_up(&thr->wait);
     intr_disable();
@@ -163,7 +159,7 @@ start_process (void *file_name_)
   }
   else
   {
-    thr->ret_status = -1;
+    thr->return_s=-1;
     sema_up(&thr->wait);
     thread_exit();
   }
@@ -195,10 +191,9 @@ int
 process_wait (tid_t ch_tid) 
 {
   //Customized
-  struct thread *thr = get_thread_by_tid(ch_tid);
+  struct thread *thr=get_thread_by_tid(ch_tid);
   sema_down(&thr->wait);
-  printf("%s: exit(%d)\n", thr->name, thr->ret_status);
-
+  printf("%s: exit(%d)\n",thr->name,thr->return_s);
   return -1;
   ///Customized
 }
@@ -236,13 +231,11 @@ void
 close_file(struct thread *thr)
 {
   file_close(thr->self);
-  
-  struct semaphore *c = &(thr->wait);
-  if(list_size(&c->waiters) != 0)
+  struct semaphore *c=&(thr->wait);
+  if(list_size(&c->waiters)!=0)
     sema_up(&thr->wait);
-  
-  thr->self = NULL;
-  thr->exited = true;
+  thr->self=NULL;
+  thr->exited=true;
   if(thr->parent)
   {
     intr_disable();
