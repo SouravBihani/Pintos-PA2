@@ -177,7 +177,7 @@ void
 npage_check(bool val) 
 {
   if(val)
-    sys_exit(-1);
+    system_exit(-1);
 }
 
 void
@@ -185,7 +185,7 @@ user_Vaddr_check(void *faddr, bool u)
 {
   if(faddr >= PHYS_BASE && u)
   {
-    sys_exit(-1);
+    system_exit(-1);
   }
 }
 
