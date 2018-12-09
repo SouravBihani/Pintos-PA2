@@ -97,10 +97,9 @@ syscall_handler (struct intr_frame *f)
             f->eax = system_exit(*(sp+1));
 	    break;
         }
-      return;
+      return 0;
     }
   }
-  system_exit(-1);
   ///Customized
 }
 
@@ -260,7 +259,8 @@ system_wait(int parent_id)
   sema_down(&thr->wait);
   v=thr->return_s;
   printf("%s: exit(%d)\n",thr->name,v);
-  sema_up(&thr->wait);   
+  while(thr->status == THREAD_BLOCKED)
+    thread_unblock(thr);
   thr->return_s=-9999;
   return v;
 }
@@ -274,6 +274,7 @@ system_close(int file_desc)
     list_remove(&file->elem);
     list_remove(&file->thread_elem);
     file_close(file->file);
+    free(file);
   }
   return 0;
 }
