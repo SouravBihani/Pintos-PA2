@@ -97,7 +97,7 @@ syscall_handler (struct intr_frame *f)
             f->eax = system_exit(*(sp+1));
 	    break;
         }
-      return;
+      return 0;
     }
   }
   ///Customized
