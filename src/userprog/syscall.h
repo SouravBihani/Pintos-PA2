@@ -3,7 +3,7 @@
 
 void syscall_init (void);
 
-//Customized
+//Customized - Syscalls
 int system_write(int file_desc,void *buf,int len);
 int system_create(char *file,int init_size);
 int system_open(char *file);
