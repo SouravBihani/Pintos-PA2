@@ -259,8 +259,8 @@ system_wait(int parent_id)
   sema_down(&thr->wait);
   v=thr->return_s;
   printf("%s: exit(%d)\n",thr->name,v);
-  while(thr->status == THREAD_BLOCKED)
-    thread_unblock(thr);
+  while(thr->status == THREAD_BLOCKED) //added
+    thread_unblock(thr); //added
   thr->return_s=-9999;
   return v;
 }
@@ -274,7 +274,7 @@ system_close(int file_desc)
     list_remove(&file->elem);
     list_remove(&file->thread_elem);
     file_close(file->file);
-    free(file);
+    free(file); //added
   }
   return 0;
 }
