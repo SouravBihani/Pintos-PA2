@@ -46,7 +46,6 @@ exception_init (void)
   intr_register_int (4, 3, INTR_ON, kill, "#OF Overflow Exception");
   intr_register_int (5, 3, INTR_ON, kill,
                      "#BR BOUND Range Exceeded Exception");
-
   /* These exceptions have DPL==0, preventing user processes from
      invoking them via the INT instruction.  They can still be
      caused indirectly, e.g. #DE can be caused by dividing by
