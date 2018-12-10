@@ -1,1 +1,3 @@
 Added the functionality for System Calls and amended the switch case scenarios
+Fixed file memory freeing up issue
+Removed locks - Need to be fixed to incorporate autograder issues
